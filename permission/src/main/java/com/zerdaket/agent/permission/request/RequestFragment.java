@@ -1,6 +1,8 @@
 package com.zerdaket.agent.permission.request;
 
 import android.Manifest;
+import android.app.AppOpsManager;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
@@ -10,12 +12,15 @@ import android.provider.Settings;
 
 import com.zerdaket.agent.permission.listener.ResultObserver;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 
@@ -24,13 +29,25 @@ import androidx.fragment.app.Fragment;
  */
 public class RequestFragment extends Fragment {
 
+    private static final int MODE_ASK = 4;
+    private static final int MODE_COMPAT = 5;
+
+    private static final String CHECK_OP_NO_THROW = "checkOpNoThrow";
+    private static final String OP_SYSTEM_ALERT_WINDOW = "OP_SYSTEM_ALERT_WINDOW";
+
     private final int REQUEST_NORMAL_PERMISSION_CODE = 200;
     private final int REQUEST_INSTALL_PERMISSION_CODE = 210;
 
     private final int REQUEST_INSTALL_CODE = 300;
+    private final int REQUEST_OVERLAYS_CODE = 310;
+
+
+    private String mPackageName;
+    private AppOpsManager mAppOpsManager;
 
     private ResultObserver<List<String>> mResultObserver = new ResultObserver<>();
     private ResultObserver<Void> mInstallResultObserver = new ResultObserver<>();
+    private ResultObserver<Void> mOverlaysResultObserver = new ResultObserver<>();
     private ArrayList<String> mGrantedPermissions = new ArrayList<>();
     private ArrayList<String> mDeniedPermissions = new ArrayList<>();
     private ArrayList<String> mRationalePermissions = new ArrayList<>();
@@ -47,6 +64,40 @@ public class RequestFragment extends Fragment {
 
     public ResultObserver<Void> getInstallResultObserver() {
         return mInstallResultObserver;
+    }
+
+    public ResultObserver<Void> getOverlaysResultObserver() {
+        return mOverlaysResultObserver;
+    }
+
+    private String getPackageName() {
+        if (mPackageName == null) {
+            mPackageName = getContext().getApplicationContext().getPackageName();
+        }
+        return mPackageName;
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.KITKAT)
+    private AppOpsManager getAppOpsManager() {
+        if (mAppOpsManager == null) {
+            mAppOpsManager = (AppOpsManager) getContext().getSystemService(Context.APP_OPS_SERVICE);
+        }
+        return mAppOpsManager;
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.KITKAT)
+    private boolean checkWithOps(String opFieldName) {
+        int uid = getContext().getApplicationInfo().uid;
+        try {
+            Class<AppOpsManager> appOpsClass = AppOpsManager.class;
+            Method method = appOpsClass.getMethod(CHECK_OP_NO_THROW, Integer.TYPE, Integer.TYPE, String.class);
+            Field opField = appOpsClass.getDeclaredField(opFieldName);
+            int opValue = (int) opField.get(Integer.class);
+            int result = (int) method.invoke(getAppOpsManager(), opValue, uid, getPackageName());
+            return result == AppOpsManager.MODE_ALLOWED || result == MODE_ASK || result == MODE_COMPAT;
+        } catch (Throwable e) {
+            return true;
+        }
     }
 
     public void checkPermissions(String[] permissions) {
@@ -134,6 +185,38 @@ public class RequestFragment extends Fragment {
         startActivityForResult(intent, REQUEST_INSTALL_CODE);
     }
 
+    public void checkOverlays() {
+        if (canDrawOverlays()) {
+            if (mOverlaysResultObserver.getGrantedResult() == null) return;
+            mOverlaysResultObserver.getGrantedResult().onResult(null);
+        } else {
+            if (mOverlaysResultObserver.getRationale() == null) {
+                overlaysIntent();
+            } else {
+                mOverlaysResultObserver.getRationale().showRationale(null, new OverlaysRequester(this));
+            }
+        }
+    }
+
+    private boolean canDrawOverlays() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT) return true;
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return checkWithOps(OP_SYSTEM_ALERT_WINDOW);
+        return Settings.canDrawOverlays(getContext());
+    }
+
+    void overlaysIntent() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return;
+        Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION);
+        intent.setData(Uri.fromParts("package", getPackageName(), null));
+        try {
+            startActivityForResult(intent, REQUEST_OVERLAYS_CODE);
+        } catch (Exception e) {
+            intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+            intent.setData(Uri.fromParts("package", getPackageName(), null));
+            startActivityForResult(intent, REQUEST_OVERLAYS_CODE);
+        }
+    }
+
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
@@ -169,13 +252,27 @@ public class RequestFragment extends Fragment {
     @Override
     public void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode != REQUEST_INSTALL_CODE) return;
-        if (canInstall()) {
-            if (mInstallResultObserver.getGrantedResult() == null) return;
-            mInstallResultObserver.getGrantedResult().onResult(null);
-        } else {
-            if (mInstallResultObserver.getDeniedResult() == null) return;
-            mInstallResultObserver.getDeniedResult().onResult(null);
+        switch (requestCode) {
+            case REQUEST_INSTALL_CODE:
+                if (canInstall()) {
+                    if (mInstallResultObserver.getGrantedResult() == null) return;
+                    mInstallResultObserver.getGrantedResult().onResult(null);
+                } else {
+                    if (mInstallResultObserver.getDeniedResult() == null) return;
+                    mInstallResultObserver.getDeniedResult().onResult(null);
+                }
+                break;
+            case REQUEST_OVERLAYS_CODE:
+                if (canDrawOverlays()) {
+                    if (mOverlaysResultObserver.getGrantedResult() == null) return;
+                    mOverlaysResultObserver.getGrantedResult().onResult(null);
+                } else {
+                    if (mOverlaysResultObserver.getDeniedResult() == null) return;
+                    mOverlaysResultObserver.getDeniedResult().onResult(null);
+                }
+                break;
+            default:
+                break;
         }
     }
 

@@ -21,4 +21,8 @@ public class Boot {
         return new InstallOption(mSource);
     }
 
+    public OverlaysOption overlays() {
+        return new OverlaysOption(mSource);
+    }
+
 }

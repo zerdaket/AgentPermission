@@ -14,7 +14,7 @@ public class Option {
     protected Source mSource;
     protected RequestFragment mRequestFragment;
 
-    public Option(Source source) {
+    Option(Source source) {
         mSource = source;
         mRequestFragment = getRequestFragment();
     }

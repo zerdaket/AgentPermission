@@ -16,7 +16,7 @@ public class RuntimeOption extends Option {
     private Rationale<List<String>> mRationale;
     private String[] mPermissions;
 
-    public RuntimeOption(Source source) {
+    RuntimeOption(Source source) {
         super(source);
     }
 

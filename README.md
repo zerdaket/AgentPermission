@@ -69,6 +69,35 @@ AgentPermission.with(MainActivity.this)
 
 
 
+3.请求悬浮窗权限：
+
+```java
+AgentPermission.with(MainActivity.this)
+        .overlays() // 悬浮窗权限
+        .rationale(new Rationale<Void>() {
+            @Override
+            public void showRationale(Void data, @NonNull final Requester requester) {
+                // TODO 展示为何需要安装权限的说明，如果不设置此回调则直接申请权限
+              
+                // 如果需要继续执行：
+                requester.execute();
+            }
+        })
+        .onGranted(new Result<Void>() {
+            @Override
+            public void onResult(Void data) {
+                // 获取权限成功的回调
+            }
+        })
+        .onDenied(new Result<Void>() {
+            @Override
+            public void onResult(Void data) {
+                // 获取权限失败的回调
+            }
+        })
+        .start();
+```
+
 ## 感谢
 
 [AndPermission](https://github.com/yanzhenjie/AndPermission)

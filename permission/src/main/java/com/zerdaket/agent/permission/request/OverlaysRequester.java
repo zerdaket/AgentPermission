@@ -1,18 +1,19 @@
 package com.zerdaket.agent.permission.request;
 
 /**
- * Created by zerdaket on 2019-11-22.
+ * Created by zerdaket on 2019-11-30.
  */
-public class InstallRequester implements Requester {
+public class OverlaysRequester implements Requester {
 
     private RequestFragment mRequestFragment;
 
-    InstallRequester(RequestFragment requestFragment) {
+    OverlaysRequester(RequestFragment requestFragment) {
         mRequestFragment = requestFragment;
     }
 
     @Override
     public void execute() {
-        mRequestFragment.installRequest();
+        mRequestFragment.overlaysIntent();
     }
+
 }

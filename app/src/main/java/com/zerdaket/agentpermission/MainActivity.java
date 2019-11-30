@@ -80,6 +80,44 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        Button overlaysBtn = findViewById(R.id.btn_overlays);
+        overlaysBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                AgentPermission.with(MainActivity.this)
+                        .overlays()
+                        .rationale(new Rationale<Void>() {
+                            @Override
+                            public void showRationale(Void data, @NonNull final Requester requester) {
+                                new AlertDialog.Builder(MainActivity.this)
+                                        .setMessage("开启权限才能使用悬浮窗")
+                                        .setPositiveButton("确定", new DialogInterface.OnClickListener() {
+                                            @Override
+                                            public void onClick(DialogInterface dialog, int which) {
+                                                requester.execute();
+                                            }
+                                        })
+                                        .setNegativeButton("取消", null)
+                                        .create()
+                                        .show();
+                            }
+                        })
+                        .onGranted(new Result<Void>() {
+                            @Override
+                            public void onResult(Void data) {
+                                Toast.makeText(MainActivity.this, "获取悬浮窗权限成功", Toast.LENGTH_SHORT).show();
+                            }
+                        })
+                        .onDenied(new Result<Void>() {
+                            @Override
+                            public void onResult(Void data) {
+                                Toast.makeText(MainActivity.this, "获取悬浮窗权限失败", Toast.LENGTH_SHORT).show();
+                            }
+                        })
+                        .start();
+            }
+        });
+
         Button button = findViewById(R.id.btn_multiply);
         button.setOnClickListener(new View.OnClickListener() {
             @Override

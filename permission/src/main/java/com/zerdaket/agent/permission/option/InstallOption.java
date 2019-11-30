@@ -13,7 +13,7 @@ public class InstallOption extends Option {
     private Result<Void> mDeniedResult;
     private Rationale<Void> mRationale;
 
-    public InstallOption(Source source) {
+    InstallOption(Source source) {
         super(source);
     }
 
@@ -36,7 +36,7 @@ public class InstallOption extends Option {
         mRequestFragment.getInstallResultObserver().setGrantedResult(mGrantedResult);
         mRequestFragment.getInstallResultObserver().setDeniedResult(mDeniedResult);
         mRequestFragment.getInstallResultObserver().setRationale(mRationale);
-        mSource.getLifecycle().addObserver(mRequestFragment.getResultObserver());
+        mSource.getLifecycle().addObserver(mRequestFragment.getInstallResultObserver());
         mRequestFragment.checkInstall();
     }
 
